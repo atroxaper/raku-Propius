@@ -5,7 +5,7 @@ use Test;
 use lib 'lib';
 use Propius;
 
-plan 18;
+plan 22;
 
 {
   my $loader-call;
@@ -49,7 +49,7 @@ plan 18;
 }
 
 {
-  class Id {
+  my class Id {
     has Str $.key;
     has Int $.value;
   }
@@ -59,6 +59,25 @@ plan 18;
   my Id $obj-key = Id.new: key => 'k', value => 4;
   is $cache.get($obj-key), 'k4k', 'loader by object key';
   is $cache.get(Id.new: key => 'k', value => 4), 'k4k', 'loader by similar object key';
+  is $cache.elems, 2, 'keys was similar but not equals';
+}
+
+{
+  my class Id {
+    has Str $.key;
+    has Int $.value;
+
+    multi method WHICH() {
+      ObjAt.new("Id|key=$.key|value=$.value");
+    }
+  }
+
+  my $cache = eviction-based-cache(loader => { $:key.key ~ $:key.value ~ $:key.key });
+
+  my Id $obj-key = Id.new: key => 'k', value => 4;
+  is $cache.get($obj-key), 'k4k', 'loader by object key with WHICH';
+  is $cache.get(Id.new: key => 'k', value => 4), 'k4k', 'loader by similar object key with WHICH';
+  is $cache.elems, 1, 'keys was similar and with equal WHICH';
 }
 
 done-testing;

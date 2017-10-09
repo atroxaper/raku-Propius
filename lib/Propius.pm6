@@ -2,6 +2,8 @@
 
 unit module Propius;
 
+use Propius::Linked;
+
 role Ticker {
   method now() { ... };
 }
@@ -21,34 +23,78 @@ class X::Propius::LoadingFail {
 
 enum RemoveCause <Expired Explicit Replaced Size>;
 
+enum ActionType <Access Write>;
+
+class ValueStore {
+  has $.key;
+  has $.value is rw;
+  has Propius::Linked::Node %.nodes{ActionType};
+
+  multi method new(:$key!, :$value!, :@types!) {
+    my $blessed = self.new(:$key, :$value);
+    for @types -> $type {
+      $blessed.nodes{$type} = Propius::Linked::Node.new: value => $blessed;
+    }
+    $blessed;
+  }
+
+  method move-to-head-for(@types, Propius::Linked::Chain %chains) {
+    for %!nodes.keys.grep: * ~~ any(@types) {
+      %chains{$_}.move-to-head(%!nodes{$_});
+    }
+  }
+
+  method remove-nodes() {
+    .remove() for %!nodes.values;
+  }
+}
+
 class EvictionBasedCache {
   has &!loader;
   has &!removal-listener;
-  has Any %!store{Any};
-  has $!expire-after-write-sec;
-  has $!expire-after-access-sec;
+  has Any %!expire-after-sec{ActionType};
   has Ticker $ticker;
   has $!size;
+
+  has ValueStore %!store{Any};
+  has Propius::Linked::Chain %!chains{ActionType};
 
   submethod BUILD(
       :&!loader! where .signature ~~ :(:$key),
       :&!removal-listener where .signature ~~ :(:$key, :$value, :$cause) = {},
-      :$!expire-after-write-sec = Inf,
-      :$!expire-after-access-sec = Inf,
+      :%!expire-after-sec = :{(Access) => Inf, (Write)  => Inf},
       Ticker :$!ticker = DateTimeTicker.new,
-      :$!size = Inf) { }
+      :$!size = Inf) {
+    %!chains{Access} = Propius::Linked::Chain.new;
+    if %!expire-after-sec{Write} !=== Inf {
+      %!chains{Write} = Propius::Linked::Chain.new;
+    }
+  }
 
   method get(Any:D $key) {
-    return $_ with %!store{$key};
-    my $loaded = %!store{$key} = self!load($key, &!loader);
-    $loaded;
+    my $value = %!store{$key};
+    with $value {
+      $value.move-to-head-for((Access,), %!chains);
+      return $value.value
+    }
+    self.put(:$key, :&!loader);
+    %!store{$key}.value;
   }
 
   multi method put(Any:D :$key, Any:D :$value) {
+    $.clean-up();
     my $previous = %!store{$key};
-    self!publish($key, $previous, Replaced) with $previous;
-    %!store{$key} = $value;
-    $value;
+    my $move;
+    with $previous {
+      self!publish($key, $previous.value, Replaced);
+      $previous.value = $value;
+      $move = $previous;
+    } else {
+      my $wrap = self!wrap-value($key, $value);
+      %!store{$key} = $wrap;
+      $move = $wrap;
+    }
+    $move.move-to-head-for(ActionType::.values, %!chains);
   }
 
   multi method put(Any:D :$key, :&loader! where .signature ~~ :(:$key)) {
@@ -56,11 +102,7 @@ class EvictionBasedCache {
   }
 
   method invalidate(Any:D $key) {
-    my $previous = %!store{$key};
-    with $previous {
-      self!remove($key);
-      self!publish($key, $previous, Explicit);
-    }
+    self!remove($key, Explicit);
   }
 
   multi method invalidateAll(List:D @keys) {
@@ -69,6 +111,20 @@ class EvictionBasedCache {
 
   multi method invalidateAll() {
     self.invalidateAll(%!store.keys);
+  }
+
+  method elems() {
+    %!store.elems;
+  }
+
+  method clean-up() {
+    while $.elems >= $!size {
+      self!remove(%!chains{Access}.last().value.key, Size);
+    }
+  }
+
+  method !wrap-value($key, $value) {
+    ValueStore.new: :$key, :$value, types => %!chains.keys;
   }
 
   method !load($key, &loader) {
@@ -87,8 +143,13 @@ class EvictionBasedCache {
     &sub(|%actual);
   }
 
-  method !remove($key) {
-    %!store{$key}:delete;
+  method !remove($key, $cause) {
+    my $previous = %!store{$key};
+    with $previous {
+      %!store{$key}:delete;
+      $previous.remove-nodes();
+      self!publish($key, $previous.value, $cause);
+    }
   }
 }
 
@@ -100,6 +161,7 @@ sub eviction-based-cache (
     Ticker :$ticker = DateTimeTicker.new,
     :$size = Inf
 ) is export {
-  EvictionBasedCache.new: :&loader, :&removal-listener, :$expire-after-write-sec,
-    :$expire-after-access-sec, :$ticker, :$size;
+  EvictionBasedCache.new: :&loader, :&removal-listener, :$ticker, :$size,
+    expire-after-sec => :{(Access) => $expire-after-access-sec,
+      (Write)  => $expire-after-write-sec};
 }
