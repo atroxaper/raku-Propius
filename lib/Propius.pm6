@@ -5,12 +5,12 @@ unit module Propius;
 use Propius::Linked;
 
 role Ticker {
-  method now() { ... };
+  method now( --> Int:D) { ... };
 }
 
 class DateTimeTicker does Ticker {
   method now() {
-    return DateTime.now;
+    return DateTime.now.posix;
   }
 }
 
@@ -29,6 +29,7 @@ class ValueStore {
   has $.key;
   has $.value is rw;
   has Propius::Linked::Node %.nodes{ActionType};
+  has Int %.last-action-at{ActionType};
 
   multi method new(:$key!, :$value!, :@types!) {
     my $blessed = self.new(:$key, :$value);
@@ -38,14 +39,19 @@ class ValueStore {
     $blessed;
   }
 
-  method move-to-head-for(@types, Propius::Linked::Chain %chains) {
+  method move-to-head-for(@types, Propius::Linked::Chain %chains, Int $now) {
     for %!nodes.keys.grep: * ~~ any(@types) {
       %chains{$_}.move-to-head(%!nodes{$_});
+      %!last-action-at{$_} = $now;
     }
   }
 
   method remove-nodes() {
     .remove() for %!nodes.values;
+  }
+
+  method last-at(ActionType $type) {
+    %!last-action-at{$type};
   }
 }
 
@@ -74,7 +80,7 @@ class EvictionBasedCache {
   method get(Any:D $key) {
     my $value = %!store{$key};
     with $value {
-      $value.move-to-head-for((Access,), %!chains);
+      $value.move-to-head-for((Access,), %!chains, $!ticker.now);
       return $value.value
     }
     self.put(:$key, :&!loader);
@@ -94,7 +100,7 @@ class EvictionBasedCache {
       %!store{$key} = $wrap;
       $move = $wrap;
     }
-    $move.move-to-head-for(ActionType::.values, %!chains);
+    $move.move-to-head-for(ActionType::.values, %!chains, $!ticker.now);
   }
 
   multi method put(Any:D :$key, :&loader! where .signature ~~ :(:$key)) {
@@ -120,6 +126,17 @@ class EvictionBasedCache {
   method clean-up() {
     while $.elems >= $!size {
       self!remove(%!chains{Access}.last().value.key, Size);
+    }
+    my $now = $!ticker.now;
+    for %!chains.kv -> $type, $chain {
+      my $life-time = %!expire-after-sec{$type};
+      next if $life-time === Inf;
+
+      my $wrap = $chain.last.value;
+      while $wrap.DEFINITE && $wrap.last-at($type) + $life-time <= $now {
+        self!remove($wrap.key, Expired);
+        $wrap = $chain.last.value;
+      }
     }
   }
 

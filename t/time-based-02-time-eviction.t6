@@ -1,0 +1,57 @@
+#!/usr/bin/env perl6
+
+use v6;
+use Test;
+use lib 'lib';
+use Propius;
+
+plan 1;
+
+my @removed;
+sub r-listener { push @removed, %(key => $:key, value => $:value, cause => $:cause); }
+sub check-listener($key, $value, $cause) {
+  @removed.pop ~~ %(:$key, :$value, :$cause);
+}
+my Int $now;
+class Ticker does Propius::Ticker {
+  method now(--> Int) {
+    $now;
+  }
+}
+
+{
+  my $cache = eviction-based-cache(
+      loader => { $:key ** 2 },
+      removal-listener => &r-listener,
+      expire-after-write-sec => 30,
+      expire-after-access-sec => 18,
+      ticker => Ticker.new);
+
+  $now = 10;
+  $cache.get(1); # w10 a10
+  $now = 20;
+  $cache.get(2); # w20 a20
+  $cache.get(1); # w10 a20
+  $now = 30;
+  $cache.get(3); # w30 a30
+  $cache.get(2); # w20 a30 --
+  $cache.get(1); # w10 a30 --
+  $now = 45;
+  $cache.get(4); # w45 a45
+  ok check-listener(1, 1, Propius::RemoveCause::Expired), 'expired 1 by write';
+
+  $cache.get(3); # w40 a45
+  $now = 49;
+  $cache.get(5); # w49 a49
+  ok check-listener(2, 4, Propius::RemoveCause::Expired), 'expired 2 by access';
+
+  $cache.get(3); # w30 a49 --
+  $cache.get(4); # w45 a49 --
+  $now = 69;
+  $cache.get(6); # w69 a69
+  ok check-listener(2, 4, Propius::RemoveCause::Expired), 'expired 2 by access';
+  ok check-listener(2, 4, Propius::RemoveCause::Expired), 'expired 2 by access';
+
+}
+
+done-testing;
