@@ -5,13 +5,21 @@ use Test;
 use lib 'lib';
 use Propius;
 
-plan 1;
+plan 10;
 
 my @removed;
 sub r-listener { push @removed, %(key => $:key, value => $:value, cause => $:cause); }
 sub check-listener($key, $value, $cause) {
-  @removed.pop ~~ %(:$key, :$value, :$cause);
+  for ^@removed {
+    if @removed[$_] ~~ %(:$key, :$value, :$cause) {
+      @removed[$_]:delete;
+      @removed .= grep({ .DEFINITE }).Array;
+      return True;
+    }
+  }
+  return False;
 }
+
 my Int $now;
 class Ticker does Propius::Ticker {
   method now(--> Int) {
@@ -49,9 +57,19 @@ class Ticker does Propius::Ticker {
   $cache.get(4); # w45 a49 --
   $now = 69;
   $cache.get(6); # w69 a69
-  ok check-listener(2, 4, Propius::RemoveCause::Expired), 'expired 2 by access';
-  ok check-listener(2, 4, Propius::RemoveCause::Expired), 'expired 2 by access';
+  ok check-listener(5, 25, Propius::RemoveCause::Expired), 'expired 5 by access';
+  ok check-listener(3, 9, Propius::RemoveCause::Expired), 'expired 3 by write';
+  ok check-listener(4, 16, Propius::RemoveCause::Expired), 'expired 4 by access';
+  is $cache.elems, 1, 'only 6 left in cache';
+  is @removed.elems, 0, 'no any removed elems';
 
+  $now = 100;
+  $cache.clean-up();
+  ok check-listener(6, 36, Propius::RemoveCause::Expired), 'expired 6 any way';
+  is $cache.elems, 0, 'zero elems after all expired';
+
+  $cache.get(7);
+  is $cache.elems, 1, 'one element after all expired and store again';
 }
 
 done-testing;
