@@ -2,6 +2,7 @@
 
 unit module Propius;
 
+use OO::Monitors;
 use TimeUnit;
 use Propius::Linked;
 
@@ -59,7 +60,7 @@ class ValueStore {
   }
 }
 
-class EvictionBasedCache {
+monitor EvictionBasedCache {
   has &!loader;
   has &!removal-listener;
   has Any %!expire-after-sec{ActionType};
