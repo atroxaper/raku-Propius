@@ -2,6 +2,7 @@
 
 unit module Propius;
 
+use TimeUnit;
 use Propius::Linked;
 
 role Ticker {
@@ -20,6 +21,9 @@ class X::Propius::LoadingFail {
     "Specified loader return type object instead of object for key $!key";
   }
 }
+
+#| Amount of reads we can do without cleanup.
+my constant READS_MAX = 20;
 
 enum RemoveCause <Expired Explicit Replaced Size>;
 
@@ -65,6 +69,8 @@ class EvictionBasedCache {
   has ValueStore %!store{Any};
   has Propius::Linked::Chain %!chains{ActionType};
 
+  has $!reads-wo-clean;
+
   submethod BUILD(
       :&!loader! where .signature ~~ :(:$key),
       :&!removal-listener where .signature ~~ :(:$key, :$value, :$cause) = {},
@@ -75,16 +81,22 @@ class EvictionBasedCache {
     if %!expire-after-sec{Write} !=== Inf {
       %!chains{Write} = Propius::Linked::Chain.new;
     }
+    $!reads-wo-clean = 0;
   }
 
   method get(Any:D $key) {
-    my $value = %!store{$key};
+    my $value = self!retrieve($key);
     with $value {
-      $value.move-to-head-for((Access,), %!chains, $!ticker.now);
-      return $value.value
+      return $value.value;
+    } else {
+      self.put(:$key, :&!loader);
+      return %!store{$key}.value;
     }
-    self.put(:$key, :&!loader);
-    %!store{$key}.value;
+  }
+
+  method get-if-exists(Any:D $key) {
+    with self!retrieve($key) { .value }
+    else { Any }
   }
 
   multi method put(Any:D :$key, Any:D :$value) {
@@ -124,6 +136,7 @@ class EvictionBasedCache {
   }
 
   method clean-up() {
+    $!reads-wo-clean = 0;
     while $.elems >= $!size {
       self!remove(%!chains{Access}.last().value.key, Size);
     }
@@ -137,6 +150,19 @@ class EvictionBasedCache {
         self!remove($wrap.key, Expired);
         $wrap = $chain.last.value;
       }
+    }
+  }
+
+  method !retrieve($key) {
+    my $value = %!store{$key};
+    with $value {
+      ++$!reads-wo-clean;
+      $.clean-up if $!reads-wo-clean >= READS_MAX;
+
+      $value.move-to-head-for((Access,), %!chains, $!ticker.now);
+      return $value;
+    } else {
+      return Any;
     }
   }
 
@@ -173,12 +199,14 @@ class EvictionBasedCache {
 sub eviction-based-cache (
     :&loader! where .signature ~~ :(:$key),
     :&removal-listener where .signature ~~ :(:$key, :$value, :$cause) = sub {},
-    :$expire-after-write-sec = Inf,
-    :$expire-after-access-sec = Inf,
+    :$expire-after-write = Inf,
+    :$expire-after-access = Inf,
+    :$time-unit = seconds,
     Ticker :$ticker = DateTimeTicker.new,
     :$size = Inf
 ) is export {
   EvictionBasedCache.new: :&loader, :&removal-listener, :$ticker, :$size,
-    expire-after-sec => :{(Access) => $expire-after-access-sec,
-      (Write)  => $expire-after-write-sec};
+    expire-after-sec => :{
+      (Access) => seconds.from($expire-after-access, $time-unit),
+      (Write)  => seconds.from($expire-after-write, $time-unit)};
 }

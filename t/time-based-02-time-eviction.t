@@ -2,18 +2,18 @@
 
 use v6;
 use Test;
+use TimeUnit;
 use lib 'lib';
 use Propius;
 
-plan 10;
+plan 18;
 
 my @removed;
 sub r-listener { push @removed, %(key => $:key, value => $:value, cause => $:cause); }
 sub check-listener($key, $value, $cause) {
   for ^@removed {
     if @removed[$_] ~~ %(:$key, :$value, :$cause) {
-      @removed[$_]:delete;
-      @removed .= grep({ .DEFINITE }).Array;
+      @removed.splice($_, 1);
       return True;
     }
   }
@@ -31,8 +31,8 @@ class Ticker does Propius::Ticker {
   my $cache = eviction-based-cache(
       loader => { $:key ** 2 },
       removal-listener => &r-listener,
-      expire-after-write-sec => 30,
-      expire-after-access-sec => 18,
+      expire-after-write => 30,
+      expire-after-access => 18,
       ticker => Ticker.new);
 
   $now = 10;
@@ -70,6 +70,36 @@ class Ticker does Propius::Ticker {
 
   $cache.get(7);
   is $cache.elems, 1, 'one element after all expired and store again';
+}
+
+{
+  my $cache = eviction-based-cache(
+      loader => { $:key ** 2 },
+      removal-listener => &r-listener,
+      expire-after-access => 20,
+      time-unit => seconds,
+      ticker => Ticker.new);
+
+  $now = 10;
+  $cache.get(3);
+  $now = 20;
+  $cache.get(4);
+  $cache.clean-up();
+  is $cache.elems, 2, 'store two elements';
+  is +@removed, 0, 'no one elements were cleaned';
+
+  $now = 35;
+  $cache.get(4) for ^20;
+  is $cache.elems, 1, 'one element was cleaned by multi read';
+  ok check-listener(3, 9, Propius::RemoveCause::Expired), 'expired 3 by access';
+
+  $now = 56;
+  $cache.get(5);
+  is $cache.elems, 1, 'second element was cleaned by write';
+  ok check-listener(4, 16, Propius::RemoveCause::Expired), 'expired 4 by write';
+
+  is $cache.get-if-exists(5), 25, '5 is exists';
+  is $cache.get-if-exists(4), Any, '4 is not exists';
 }
 
 done-testing;
