@@ -5,7 +5,7 @@ use Test;
 use lib 'lib';
 use Propius;
 
-plan 7;
+plan 8;
 
 my @removed;
 sub r-listener { push @removed, %(key => $:key, value => $:value, cause => $:cause); }
@@ -40,6 +40,8 @@ sub check-listener($key, $value, $cause) {
 
   $cache.get(8);
   ok check-listener(7, 49, Propius::RemoveCause::Size), 'again removed the oldest accessed';
+
+  is $cache.hash, %(4, 16, 6, 36, 8, 64), 'retrieve values by hash method';
 }
 
 done-testing;

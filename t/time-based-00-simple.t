@@ -5,7 +5,7 @@ use Test;
 use lib 'lib';
 use Propius;
 
-plan 22;
+plan 23;
 
 {
   my $loader-call;
@@ -23,6 +23,8 @@ plan 22;
 
   $cache.put(:key(7), loader => { $:key ** 3 });
   is $cache.get(7), 343, 'direct loader put';
+
+  is $cache.hash(), %(5, 25, 6, 16, 7, 343), 'get copy of stored values';
 }
 
 {

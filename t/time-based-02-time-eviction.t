@@ -6,7 +6,7 @@ use TimeUnit;
 use lib 'lib';
 use Propius;
 
-plan 18;
+plan 19;
 
 my @removed;
 sub r-listener { push @removed, %(key => $:key, value => $:value, cause => $:cause); }
@@ -100,6 +100,8 @@ class Ticker does Propius::Ticker {
 
   is $cache.get-if-exists(5), 25, '5 is exists';
   is $cache.get-if-exists(4), Any, '4 is not exists';
+
+  is $cache.hash, %(5, 25), 'retrieve only one value by hash method';
 }
 
 done-testing;
