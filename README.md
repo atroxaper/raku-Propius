@@ -60,7 +60,7 @@ Of course the cache is thread-save. It simply uses OO::Monitors for synchronisat
 Available methods
 -----------------
 
-###get(Any:D $key)
+### get(Any:D $key)
 Retrieve value by key.
 
         my $is-primitive = $cache.get(655360001);
@@ -68,15 +68,15 @@ Retrieve value by key.
 If there is no value for specified key then loader with be
 used to produce the new value.
 
-###get-if-exists(Any:D $key)
+### get-if-exists(Any:D $key)
 Retrieve value by key only if it exists.
 
         my $is-primitive = $cache.get-if-exists(900900900900990990990991);
 
 If there is no value for specified key then Any will be returned.
 
-###put(Any:D :$key, Any:D :$value)
-###put(Any:D :$key, :&loader! where .signature ~~ :(:$key))
+### put(Any:D :$key, Any:D :$value)
+### put(Any:D :$key, :&loader! where .signature ~~ :(:$key))
 Store a value in cache with/without specified loader.
 
         $cache.put(:900900900900990990990991key, :value);
@@ -89,9 +89,9 @@ In case of cache already reached max capacity value which has not
 been used for a longest time will be removed. In that case
 removal-listener will be called with old value cause Size.
 
-###invalidate
-###invalidateAll(List:D @keys)
-###invalidateAll
+### invalidate
+### invalidateAll(List:D @keys)
+### invalidateAll
 Mark value/values for specified/all key/keys as invalidate.
 
         $cache.invalidate(655360001);
@@ -101,12 +101,12 @@ Mark value/values for specified/all key/keys as invalidate.
 The value will be removed and removal-listener will be called for each
 old values cause Explicit.
 
-###elems
+### elems
 Return keys and values stored in cache as Hash.
 
         $cache.elems();
         
-###hash
+### hash
 Return keys and values stored in cache as Hash.
 
         $cache.hash();
@@ -114,7 +114,7 @@ Return keys and values stored in cache as Hash.
 This is a copy of values. Any modification of returned cache will no have
 an effect on values in the store.
 
-###clean-up
+### clean-up
 Clean evicted values from cache.
 
         $cache.clean-up();
