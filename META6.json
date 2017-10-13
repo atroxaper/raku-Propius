@@ -8,7 +8,7 @@
   "provides" : {
     "Propius" : "lib/Propius.pm6"
   },
-  "depends" : [ "TimeUnit" ],
+  "depends" : [ "TimeUnit", "OO::Monitors" ],
   "tags": [ "cache" ],
   "source-url" : "git://github.com/atroxaper/p6-Propius.git"
 }

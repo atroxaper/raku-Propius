@@ -18,7 +18,7 @@ Examples
         $cache.get(5); # returns prodused the new value - 25;
         $cache.get(5): # returns cached value - 25;
         $cache.get-if-exists(6); # returns Any
-        $cache.put(:9key, loader => { $:key ** 3 }); # cache value for cpecified loader
+        $cache.put(:9key, loader => { $:key ** 3 }); # cache value for specified loader
         $cache.get(9); # returns cached value - 729
         # ... 60 seconds later in output (in case you use the cache)
         removed 5:25 cause Expired
@@ -53,7 +53,7 @@ Can be specified for overriding standard behaviour (current system time),for exa
 Notes
 -----
 
-The cache can use object keys. If you want that you have to control .WITCH method if keys.
+The cache can use object keys. If you want that you have to control .WHICH method if keys.
 
 Of course the cache is thread-save. It simply uses OO::Monitors for synchronisation.
 
