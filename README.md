@@ -30,30 +30,30 @@ Create
 You can use sub `eviction-based-cache` for creation the new cache.
 Arguments are:
 
-`:&loader! where .signature ~~ :(:$key)` - sub with signature like (:$key).
+`:&loader! where .signature ~~ :(:$key)` - sub with signature like `(:$key)`.
 The sub will be used for producing the new values. Obligatory argument.
 
 `:&removal-listener where .signature ~~ :(:$key, :$value, :$cause)` -
-sub with signature like (:$key, :$value, :$cause).
+sub with signature like `(:$key, :$value, :$cause)`.
 The sub will be called in case when value removed from the cache.
-Cause is element of enum RemoveCause.
+Cause is element of enum `RemoveCause`.
 
 `:$expire-after-write` - how long the cache have to store value after its last re/write
 
 `:$expire-after-access` - how long the cache have to store value after its last access (read or write)
 
-`:$time-unit` - object of TimeUnit, indicate time unit of expire-after-write/access value.
-seconds by default.
+`:$time-unit` - object of `TimeUnit`, indicate time unit of expire-after-write/access value.
+Seconds by default.
 
-`:$ticker` - object of Ticker, witch is used for retrieve 'current' time.
-Can be specified for overriding standard behaviour (current system time),for example for testing.
+`:$ticker` - object of `Ticker`, witch is used for retrieve 'current' time.
+Can be specified for overriding standard behaviour (current system time), for example for testing.
 
 `:$size` - max capacity of the cache.
 
 Notes
 -----
 
-The cache can use object keys. If you want that you have to control .WHICH method if keys.
+The cache can use object keys. If you want that you have to control .WHICH method of keys.
 
 Of course the cache is thread-save. It simply uses OO::Monitors for synchronisation.
 
@@ -124,7 +124,7 @@ This method may be invoked directly by user.
 The method invoked on each write operation and ones for several read operation
 if there was no write operation recently.
 
-It means that evicted values will be removed on just in time of its eviction.
+It means that evicted values will not be removed on just in time of its eviction.
 This is done for the purpose of optimisation - is it not requires special thread
 for checking an eviction. If it is issue for you then you can call it method yourself
 by some scheduled Promise for example.

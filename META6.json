@@ -1,14 +1,28 @@
 {
-  "perl" : "6.*",
-  "name" : "Propius",
-  "version" : "0.1.0",
-  "description" : "Memory cache with loader and eviction by time.",
-  "author" : [ "Mikhail Khorkov" ],
-  "license" : "Artistic-2.0",
-  "provides" : {
-    "Propius" : "lib/Propius.pm6"
-  },
-  "depends" : [ "TimeUnit", "OO::Monitors" ],
-  "tags": [ "cache" ],
-  "source-url" : "git://github.com/atroxaper/p6-Propius.git"
+	"perl": "6.c",
+	"name": "Propius",
+	"auth": "github:atroxaper",
+	"api": "1",
+	"version": "0.1.1",
+	"description": "Memory cache with loader and eviction by time.",
+	"authors": [
+		"Mikhail Khorkov"
+	],
+	"license": "Artistic-2.0",
+	"provides": {
+		"Propius": "lib/Propius.pm6",
+		"Propius::Linked": "lib/Propius/Linked.pm6"
+	},
+	"depends": [
+		"TimeUnit",
+		"OO::Monitors"
+	],
+	"build-depends": [],
+	"test-depends": [],
+	"resources": [],
+	"tags": [
+		"cache",
+		"eviction"
+	],
+	"source-url": "git://github.com/atroxaper/p6-Propius.git"
 }

@@ -1,5 +1,3 @@
-#!/usr/bin/env perl6
-
 unit module Propius;
 
 use OO::Monitors;
