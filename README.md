@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/atroxaper/p6-Propius.svg?branch=master)](https://travis-ci.org/atroxaper/p6-Propius)
+[![Build Status](https://github.com/atroxaper/p6-Propius/workflows/build/badge.svg)](https://github.com/atroxaper/p6-Propius/actions)
 
 Propius
 =======
